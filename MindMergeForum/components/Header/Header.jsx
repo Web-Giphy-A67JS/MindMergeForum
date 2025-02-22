@@ -3,6 +3,7 @@ import { AppContext } from "../../src/store/app.context";
 import { useContext } from "react";
 import { logoutUser } from "../../services/auth.services";
 import { Roles } from "../../common/roles.enum";
+import { Box, Flex, Heading, Button, Text, Link, HStack } from "@chakra-ui/react";
 
 export default function Header() {
 
@@ -22,30 +23,34 @@ export default function Header() {
   }
 
   return (
-    <header>
-      <h1>MindMerge Forum</h1>
-      <nav>
-        <NavLink to="/">Home</NavLink>
-        {user && userData && userData.role === Roles.admin && (
-          <>
-            <NavLink to="/forum">Forum</NavLink>
-            <NavLink to="/user-profile">My Profile</NavLink>
-            <NavLink to="/create-post">Create Post</NavLink>
-            <NavLink to="/admin-tools">Admin Tools</NavLink>
-          </>
-        )}
-        {user && userData && userData.role === Roles.user && (
-          <>
-            <NavLink to="/forum">Forum</NavLink>
-            <NavLink to="/user-profile">My Profile</NavLink>
-            <NavLink to="/create-post">Create Post</NavLink>
-          </>
-        )}
-        {!user && <NavLink to="/login">Log in</NavLink>}
-        {!user && <NavLink to="/register">Register</NavLink>}
-      </nav>
-      {user && <button onClick={logout}>Log Out</button>}
-      {userData && <span> Welcome, {userData.handle}</span>}
-    </header>
+    <Box as="header" bg="gray.100" py={4}>
+      <Flex maxW="container.xl" mx="auto" alignItems="center" justifyContent="space-between">
+        <Heading as="h1" size="lg">MindMerge Forum</Heading>
+        <HStack as="nav" spacing={4}>
+          <Link as={NavLink} to="/">Home</Link>
+          {user && userData && userData.role === Roles.admin && (
+            <>
+              <Link as={NavLink} to="/forum">Forum</Link>
+              <Link as={NavLink} to="/user-profile">My Profile</Link>
+              <Link as={NavLink} to="/create-post">Create Post</Link>
+              <Link as={NavLink} to="/admin-tools">Admin Tools</Link>
+            </>
+          )}
+          {user && userData && userData.role === Roles.user && (
+            <>
+              <Link as={NavLink} to="/forum">Forum</Link>
+              <Link as={NavLink} to="/user-profile">My Profile</Link>
+              <Link as={NavLink} to="/create-post">Create Post</Link>
+            </>
+          )}
+          {!user && <Link as={NavLink} to="/login">Log in</Link>}
+          {!user && <Link as={NavLink} to="/register">Register</Link>}
+        </HStack>
+        <Flex alignItems="center">
+          {user && <Button onClick={logout} mr={4}>Log Out</Button>}
+          {userData && <Text>Welcome, {userData.handle}</Text>}
+        </Flex>
+      </Flex>
+    </Box>
   );
 }

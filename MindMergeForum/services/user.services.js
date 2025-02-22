@@ -85,8 +85,3 @@ export const updateUserRole = async (uid, newRole) => {
     throw new Error('User not found');
   }
 };
-
-export const updateUser = async (handle, userData) => {
-  const userRef = ref(db, `users/${handle}`);
-  await update(userRef, userData);
-};

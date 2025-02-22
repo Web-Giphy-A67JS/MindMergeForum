@@ -49,7 +49,7 @@ export default function AdminTools() {
     <br />
       <h2>Welcome to your admin tools!</h2>
       <br /><br />
-      <label>Search users by: </label>
+      <label>Search by: </label>
       <label>
         <input
           type="radio"
