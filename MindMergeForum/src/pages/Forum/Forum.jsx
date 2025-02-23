@@ -77,7 +77,10 @@ export default function Forum() {
     error,
     isGuest,
     hasMore,
-    loadMore
+    loadMore,
+    sortedPosts,
+    setSearchQuery,
+    searchQuery
   } = useSortedPosts();
   const listRef = useRef(null);
   const prevSortCriteria = useRef(sortCriteria);
@@ -184,10 +187,12 @@ export default function Forum() {
               onSortCriteriaChange={updateSortCriteria}
               dateRange={dateRange}
               onDateRangeChange={updateDateRange}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
             />
 
             <VStack spacing={4} align="stretch" mb={4}>
-              {Object.entries(posts.sortedPosts).map(([postId, post]) => (
+              {sortedPosts && Object.entries(sortedPosts).map(([postId, post]) => (
                 <PostCard
                   key={postId}
                   postId={postId}

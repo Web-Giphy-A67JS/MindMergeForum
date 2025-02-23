@@ -6,13 +6,25 @@ export const SortingControls = ({
   sortCriteria,
   onSortCriteriaChange,
   dateRange,
-  onDateRangeChange
+  onDateRangeChange,
+  searchQuery,
+  onSearchChange
 }) => {
   const today = new Date().toISOString().split('T')[0];
 
   return (
     <Box>
       <HStack spacing={4} align="flex-end">
+      <FormControl>
+          <FormLabel htmlFor="search">Search:</FormLabel>
+          <Input
+            id="search"
+            type="text"
+            placeholder="Search posts..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+          />
+        </FormControl>
         <FormControl>
           <FormLabel htmlFor="sort-criteria">Sort by:</FormLabel>
           <Select
@@ -62,5 +74,7 @@ SortingControls.propTypes = {
     [DATE_RANGE.FROM]: PropTypes.string,
     [DATE_RANGE.TO]: PropTypes.string
   }).isRequired,
-  onDateRangeChange: PropTypes.func.isRequired
+  onDateRangeChange: PropTypes.func.isRequired,
+  searchQuery: PropTypes.string,
+  onSearchChange: PropTypes.func.isRequired
 };

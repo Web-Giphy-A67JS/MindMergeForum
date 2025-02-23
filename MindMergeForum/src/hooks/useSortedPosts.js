@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useMemo } from 'react';
 import { getPostsSorted } from '../../services/posts';
 import { SORT_CRITERIA, SORT_ORDERS, DATE_RANGE } from '../../common/constants/sorting.constants';
 import { getUserById } from '../../services/user.services';
@@ -33,7 +33,29 @@ export const useSortedPosts = () => {
     sorted: true
   });
 
+  const [searchQuery, setSearchQuery] = useState('');
+
   const isGuest = !auth.currentUser && !userData;
+
+    const filteredPosts = useMemo(() => {
+    if (!searchQuery) {
+      return posts.sortedPosts;
+    }
+
+    const lowerCaseQuery = searchQuery.toLowerCase();
+
+    const filtered = {};
+    for (const postId in posts.sortedPosts) {
+      const post = posts.sortedPosts[postId];
+      if (
+        post.title.toLowerCase().includes(lowerCaseQuery) ||
+        post.content.toLowerCase().includes(lowerCaseQuery)
+      ) {
+        filtered[postId] = post;
+      }
+    }
+    return filtered;
+  }, [posts.sortedPosts, searchQuery]);
 
   const fetchSortedPosts = async (section = null) => {
     try {
@@ -150,6 +172,9 @@ export const useSortedPosts = () => {
     error,
     isGuest,
     hasMore,
-    loadMore
+    loadMore,
+    sortedPosts: filteredPosts,
+    setSearchQuery,
+    searchQuery
   };
 };
