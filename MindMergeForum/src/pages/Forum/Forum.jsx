@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { auth } from "../../config/firebase.config";
@@ -79,6 +79,8 @@ export default function Forum() {
     hasMore,
     loadMore
   } = useSortedPosts();
+  const listRef = useRef(null);
+  const prevSortCriteria = useRef(sortCriteria);
 
   const handleDelete = async (postId) => {
     try {
@@ -96,6 +98,19 @@ export default function Forum() {
     return (auth.currentUser && auth.currentUser.uid === post.userId) ||
            (userData && userData.role === Roles.admin);
   };
+
+  // Preserve scroll position on sort change
+  useEffect(() => {
+    if (prevSortCriteria.current !== sortCriteria && listRef.current) {
+      const scrollY = window.scrollY;
+      return () => {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, scrollY);
+        });
+      };
+    }
+    prevSortCriteria.current = sortCriteria;
+  }, [sortCriteria]);
 
   if (loading) {
     return <Spinner />;
@@ -152,7 +167,7 @@ export default function Forum() {
   }
 
   return (
-    <Box>
+    <Box ref={listRef}>
       <Heading as="h2" mb={4}>Forum</Heading>
 
       {renderPostSection("Most Discussed Posts", posts.topCommented, "comments", true)}

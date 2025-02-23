@@ -107,13 +107,25 @@ export const getPostsSorted = async (
           if (!pagination.lastSortedPost) return true;
           
           if (sortField === 'likedBy') {
-            return getLikeCount(post) < getLikeCount(pagination.lastSortedPost);
+            const currentLikes = getLikeCount(post);
+            const lastLikes = getLikeCount(pagination.lastSortedPost);
+            return order === SORT_ORDERS.ASC 
+              ? currentLikes > lastLikes 
+              : currentLikes < lastLikes;
           }
           if (sortField === 'commentCount') {
-            return getCommentCount(post) < getCommentCount(pagination.lastSortedPost);
+            const currentComments = getCommentCount(post);
+            const lastComments = getCommentCount(pagination.lastSortedPost);
+            return order === SORT_ORDERS.ASC 
+              ? currentComments > lastComments 
+              : currentComments < lastComments;
           }
           if (sortField === 'createdOn') {
-            return new Date(post.createdOn) < new Date(pagination.lastSortedPost.createdOn);
+            const currentDate = new Date(post.createdOn);
+            const lastDate = new Date(pagination.lastSortedPost.createdOn);
+            return order === SORT_ORDERS.ASC 
+              ? currentDate > lastDate 
+              : currentDate < lastDate;
           }
           return true;
         })
