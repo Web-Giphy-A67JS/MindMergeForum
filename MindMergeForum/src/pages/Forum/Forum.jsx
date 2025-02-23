@@ -1,70 +1,37 @@
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
-import PropTypes from 'prop-types';
 import { auth } from "../../config/firebase.config";
 import { deletePost } from "../../../services/posts";
 import { Roles } from "../../../common/roles.enum";
 import { AppContext } from "../../store/app.context";
 import { SortingControls } from "../../../components/SortingControls/SortingControls";
 import { useSortedPosts } from "../../hooks/useSortedPosts";
-import { Box, Heading, Text, Button, VStack, HStack, Spinner, Divider } from "@chakra-ui/react";
-
-const PostCard = ({ postId, post, userHandles, onDelete, canDelete, onSeeMore }) => (
-  <Box key={postId} borderWidth={1} borderRadius="lg" p={4}>
-    <Heading as="h3" size="md">{post.title}</Heading>
-    <Text fontSize="sm" color="gray.500">
-      Created by: {userHandles[post.userId] || 'Unknown User'} |
-      Created on: {new Date(post.createdOn).toLocaleString()}
-    </Text>
-    <Text mt={2} noOfLines={3}>{post.content}</Text>
-    <HStack mt={2}>
-      <Text>❤️ {post.likedBy ? Object.keys(post.likedBy).length : (post.likes || 0)}</Text>
-      <Text>💬 {post.comments ? Object.keys(post.comments).length : (post.commentCount || 0)}</Text>
-    </HStack>
-    <HStack mt={2}>
-      <Button
-        colorScheme="blue"
-        onClick={() => onSeeMore(postId)}
-      >
-        See More
-      </Button>
-      {canDelete && (
-        <Button
-          colorScheme="red"
-          onClick={() => onDelete(postId)}
-        >
-          Delete
-        </Button>
-      )}
-    </HStack>
-  </Box>
-);
-
-PostCard.propTypes = {
-  postId: PropTypes.string.isRequired,
-  post: PropTypes.shape({
-    title: PropTypes.string.isRequired,
-    content: PropTypes.string.isRequired,
-    userId: PropTypes.string.isRequired,
-    createdOn: PropTypes.string.isRequired,
-    likedBy: PropTypes.object,
-    likes: PropTypes.number,
-    comments: PropTypes.object,
-    commentCount: PropTypes.number
-  }).isRequired,
-  userHandles: PropTypes.objectOf(PropTypes.string).isRequired,
-  onDelete: PropTypes.func,
-  canDelete: PropTypes.bool.isRequired,
-  onSeeMore: PropTypes.func.isRequired
-};
-
-PostCard.defaultProps = {
-  onDelete: () => {}
-};
+import PostCard from "../../../components/Post/Post";
+import {
+  Box,
+  Container,
+  Heading,
+  Button,
+  VStack,
+  HStack,
+  Spinner,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
+  Text,
+  Divider,
+  useColorModeValue,
+} from "@chakra-ui/react";
 
 export default function Forum() {
   const { userData } = useContext(AppContext);
   const navigation = useNavigate();
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTimeout, setSearchTimeout] = useState(null);
+  const noResultsColor = useColorModeValue("gray.600", "gray.400");
+
   const {
     posts,
     userHandles,
@@ -82,8 +49,6 @@ export default function Forum() {
     setSearchQuery,
     searchQuery
   } = useSortedPosts();
-  const listRef = useRef(null);
-  const prevSortCriteria = useRef(sortCriteria);
 
   const handleDelete = async (postId) => {
     try {
@@ -102,124 +67,137 @@ export default function Forum() {
            (userData && userData.role === Roles.admin);
   };
 
-  // Preserve scroll position on sort change
-  useEffect(() => {
-    if (prevSortCriteria.current !== sortCriteria && listRef.current) {
-      const scrollY = window.scrollY;
-      return () => {
-        requestAnimationFrame(() => {
-          window.scrollTo(0, scrollY);
-        });
-      };
+  const handleSearchChange = (query) => {
+    setIsSearching(true);
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
     }
-    prevSortCriteria.current = sortCriteria;
-  }, [sortCriteria]);
+    setSearchTimeout(setTimeout(() => {
+      setSearchQuery(query);
+      setIsSearching(false);
+    }, 500));
+  };
 
-  if (loading) {
-    return <Spinner />;
-  }
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
 
   if (error) {
-    return <Text color="red.500">Error: {error}</Text>;
+    return (
+      <Container maxW="1200px" py={8}>
+        <Text color="red.500">Error: {error}</Text>
+      </Container>
+    );
   }
 
-  const renderPostSection = (title, posts, section, canDelete = false) => (
-    <Box mb={8}>
-      <Heading as="h3" size="lg" mb={4}>{title}</Heading>
-      <VStack spacing={4} align="stretch">
-        {Object.entries(posts).map(([postId, post]) => (
-          <PostCard
-            key={postId}
-            postId={postId}
-            post={post}
-            userHandles={userHandles}
-            onDelete={handleDelete}
-            onSeeMore={handleSeeMore}
-            canDelete={canDelete && canDeletePost(post)}
-          />
-        ))}
-      </VStack>
-      {hasMore[section] && (
-        <Box textAlign="center" mt={4}>
+  const renderPosts = (postsObj, section, showLoadMore = false) => (
+    <VStack spacing={0} align="stretch" divider={<Divider />}>
+      {Object.entries(postsObj).map(([postId, post]) => (
+        <PostCard
+          key={postId}
+          postId={postId}
+          post={post}
+          userHandles={userHandles}
+          onDelete={handleDelete}
+          onSeeMore={handleSeeMore}
+          canDelete={!isGuest && canDeletePost(post)}
+        />
+      ))}
+      {showLoadMore && hasMore[section] && (
+        <Box py={4} textAlign="center">
           <Button
             onClick={() => loadMore(section)}
             isLoading={loadingState[section]}
             loadingText="Loading more..."
             colorScheme="blue"
+            size="sm"
           >
-            Show More {title}
+            Load more
           </Button>
         </Box>
       )}
-    </Box>
+    </VStack>
   );
 
-  if (isGuest) {
-    return (
-      <Box>
-        <Heading as="h2" mb={4}>Welcome to the Forum</Heading>
-        <Text mb={4} color="gray.600">
-          Sign in to see all posts and participate in discussions.
-        </Text>
-
-        {renderPostSection("Most Discussed Posts", posts.topCommented, "comments")}
-        <Divider my={8} />
-        {renderPostSection("Latest Posts", posts.topNew, "new")}
-      </Box>
-    );
-  }
-
   return (
-    <Box ref={listRef}>
-      <Heading as="h2" mb={4}>Forum</Heading>
+    <Container maxW="1200px" py={8}>
+      <HStack justify="space-between" mb={6}>
+        <Heading size="lg">Questions</Heading>
+        <Button
+          as="a"
+          href="/create-post"
+          colorScheme="orange"
+          size="md"
+        >
+          Ask Question
+        </Button>
+      </HStack>
 
-      {renderPostSection("Most Discussed Posts", posts.topCommented, "comments", true)}
-      <Divider my={8} />
-      {renderPostSection("Latest Posts", posts.topNew, "new", true)}
+      <Tabs variant="soft-rounded" colorScheme="orange" mb={6}>
+        <TabList mb={4}>
+          <Tab>Latest</Tab>
+          <Tab>Top Discussed</Tab>
+          <Tab>All Posts</Tab>
+        </TabList>
 
-      {!isGuest && (
-        <>
-          <Divider my={8} />
-          <Box>
-            <Heading as="h3" size="lg" mb={4}>All Posts</Heading>
-            <SortingControls
-              sortCriteria={sortCriteria}
-              onSortCriteriaChange={updateSortCriteria}
-              dateRange={dateRange}
-              onDateRangeChange={updateDateRange}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-            />
-
-            <VStack spacing={4} align="stretch" mb={4}>
-              {sortedPosts && Object.entries(sortedPosts).map(([postId, post]) => (
-                <PostCard
-                  key={postId}
-                  postId={postId}
-                  post={post}
-                  userHandles={userHandles}
-                  onDelete={handleDelete}
-                  onSeeMore={handleSeeMore}
-                  canDelete={canDeletePost(post)}
-                />
-              ))}
-            </VStack>
-
-            {hasMore.sorted && (
-              <Box textAlign="center" mt={4}>
-                <Button
-                  onClick={() => loadMore('sorted')}
-                  isLoading={loadingState.sorted}
-                  loadingText="Loading more..."
-                  colorScheme="blue"
-                >
-                  Show More Posts
-                </Button>
+        <TabPanels>
+          {/* Latest Posts Tab */}
+          <TabPanel px={0}>
+            {loading ? (
+              <Box textAlign="center" py={8}>
+                <Spinner size="lg" color="orange.500" />
               </Box>
+            ) : (
+              renderPosts(posts.topNew, "new", true)
             )}
-          </Box>
-        </>
-      )}
-    </Box>
+          </TabPanel>
+
+          {/* Top Discussed Tab */}
+          <TabPanel px={0}>
+            {loading ? (
+              <Box textAlign="center" py={8}>
+                <Spinner size="lg" color="orange.500" />
+              </Box>
+            ) : (
+              renderPosts(posts.topCommented, "comments", true)
+            )}
+          </TabPanel>
+
+          {/* All Posts Tab */}
+          <TabPanel px={0}>
+            <Box mb={6}>
+              <SortingControls
+                sortCriteria={sortCriteria}
+                onSortCriteriaChange={updateSortCriteria}
+                dateRange={dateRange}
+                onDateRangeChange={updateDateRange}
+                searchQuery={searchQuery}
+                onSearchChange={handleSearchChange}
+              />
+            </Box>
+
+            {isSearching ? (
+              <Box textAlign="center" py={8}>
+                <Spinner size="lg" color="orange.500" />
+              </Box>
+            ) : loading ? (
+              <Box textAlign="center" py={8}>
+                <Spinner size="lg" color="orange.500" />
+              </Box>
+            ) : Object.keys(sortedPosts).length === 0 ? (
+              <Text textAlign="center" color={noResultsColor} py={8}>
+                No questions found
+              </Text>
+            ) : (
+              renderPosts(sortedPosts, "sorted", true)
+            )}
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
+    </Container>
   );
 }

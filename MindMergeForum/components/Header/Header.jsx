@@ -3,12 +3,26 @@ import { AppContext } from "../../src/store/app.context";
 import { useContext } from "react";
 import { logoutUser } from "../../services/auth.services";
 import { Roles } from "../../common/roles.enum";
-import { Box, Flex, Heading, Button, Text, Link, HStack } from "@chakra-ui/react";
+import {
+  Box,
+  Flex,
+  Heading,
+  Button,
+  HStack,
+  useColorModeValue,
+  Container,
+  Input,
+  InputGroup,
+  InputLeftElement,
+} from "@chakra-ui/react";
+import { SearchIcon } from "@chakra-ui/icons";
 
 export default function Header() {
-
-  const { user, userData, setAppState } = useContext(AppContext)
+  const { user, userData, setAppState } = useContext(AppContext);
   const navigate = useNavigate();
+
+  const bgColor = useColorModeValue("gray.100", "gray.900");
+  const borderColor = useColorModeValue("gray.200", "gray.700");
 
   const logout = () => {
     logoutUser()
@@ -17,39 +31,114 @@ export default function Header() {
           user: null,
           userData: null,
         });
-        navigate('/')
+        navigate("/");
       })
-      .catch((error) => console.error(error.message))
-  }
+      .catch((error) => console.error(error.message));
+  };
 
   return (
-    <Box as="header" bg="gray.100" py={4}>
-      <Flex maxW="container.xl" mx="auto" alignItems="center" justifyContent="space-between">
-        <Heading as="h1" size="lg">MindMerge Forum</Heading>
-        <HStack as="nav" spacing={4}>
-          <Link as={NavLink} to="/">Home</Link>
-          <Link as={NavLink} to="/forum">Forum</Link>
-          {user && userData && userData.role === Roles.admin && (
-            <>
-              <Link as={NavLink} to="/user-profile">My Profile</Link>
-              <Link as={NavLink} to="/create-post">Create Post</Link>
-              <Link as={NavLink} to="/admin-tools">Admin Tools</Link>
-            </>
-          )}
-          {user && userData && userData.role === Roles.user && (
-            <>
-              <Link as={NavLink} to="/user-profile">My Profile</Link>
-              <Link as={NavLink} to="/create-post">Create Post</Link>
-            </>
-          )}
-          {!user && <Link as={NavLink} to="/login">Log in</Link>}
-          {!user && <Link as={NavLink} to="/register">Register</Link>}
-        </HStack>
-        <Flex alignItems="center">
-          {user && <Button onClick={logout} mr={4}>Log Out</Button>}
-          {userData && <Text>Welcome, {userData.handle}</Text>}
+    <Box
+      as="header"
+      position="sticky"
+      top={0}
+      zIndex="sticky"
+      bg={bgColor}
+      borderBottom="1px"
+      borderColor={borderColor}
+    >
+      <Container maxW="1200px" py={2}>
+        <Flex alignItems="center" justify="space-between">
+          <HStack spacing={8}>
+            <Heading
+              as={NavLink}
+              to="/"
+              size="xl"
+              color="orange.500"
+              fontWeight="bold"
+              _hover={{ textDecoration: "none" }}
+            >
+              MindOverflow
+            </Heading>
+            <Button
+              as={NavLink}
+              to="/forum"
+              variant="ghost"
+              color="gray.600"
+              size="sm"
+            >
+              Questions
+            </Button>
+          </HStack>
+
+          <HStack spacing={4} flex={1} mx={8}>
+            <InputGroup maxW="600px">
+              <InputLeftElement pointerEvents="none">
+                <SearchIcon color="gray.400" />
+              </InputLeftElement>
+              <Input
+                placeholder="Search..."
+                bg={useColorModeValue("white", "gray.800")}
+                borderColor={borderColor}
+              />
+            </InputGroup>
+          </HStack>
+
+          <HStack spacing={4}>
+            {!user && (
+              <>
+                <Button
+                  as={NavLink}
+                  to="/login"
+                  variant="ghost"
+                  colorScheme="blue"
+                  size="sm"
+                >
+                  Log in
+                </Button>
+                <Button
+                  as={NavLink}
+                  to="/register"
+                  colorScheme="blue"
+                  size="sm"
+                >
+                  Sign up
+                </Button>
+              </>
+            )}
+            {user && (
+              <>
+                {userData && userData.role === Roles.admin && (
+                  <Button
+                    as={NavLink}
+                    to="/admin-tools"
+                    variant="ghost"
+                    size="sm"
+                    colorScheme="red"
+                  >
+                    Admin
+                  </Button>
+                )}
+                <Button
+                  as={NavLink}
+                  to="/user-profile"
+                  variant="ghost"
+                  size="sm"
+                >
+                  {userData?.handle}
+                </Button>
+                <Button
+                  onClick={logout}
+                  variant="ghost"
+                  colorScheme="red"
+                  size="sm"
+                >
+                  Log Out
+                </Button>
+              </>
+            )}
+          </HStack>
         </Flex>
-      </Flex>
+      </Container>
     </Box>
   );
 }
