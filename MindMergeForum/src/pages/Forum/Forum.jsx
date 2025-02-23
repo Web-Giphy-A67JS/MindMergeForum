@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { auth } from "../../config/firebase.config";
 import { deletePost } from "../../../services/posts";
@@ -28,8 +28,7 @@ import {
 export default function Forum() {
   const { userData } = useContext(AppContext);
   const navigation = useNavigate();
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchTimeout, setSearchTimeout] = useState(null);
+  const [searchInput, setSearchInput] = useState("");
   const noResultsColor = useColorModeValue("gray.600", "gray.400");
 
   const {
@@ -47,7 +46,6 @@ export default function Forum() {
     loadMore,
     sortedPosts,
     setSearchQuery,
-    searchQuery
   } = useSortedPosts();
 
   const handleDelete = async (postId) => {
@@ -66,25 +64,6 @@ export default function Forum() {
     return (auth.currentUser && auth.currentUser.uid === post.userId) ||
            (userData && userData.role === Roles.admin);
   };
-
-  const handleSearchChange = (query) => {
-    setIsSearching(true);
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-    setSearchTimeout(setTimeout(() => {
-      setSearchQuery(query);
-      setIsSearching(false);
-    }, 500));
-  };
-
-  useEffect(() => {
-    return () => {
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
-      }
-    };
-  }, [searchTimeout]);
 
   if (error) {
     return (
@@ -175,16 +154,15 @@ export default function Forum() {
                 onSortCriteriaChange={updateSortCriteria}
                 dateRange={dateRange}
                 onDateRangeChange={updateDateRange}
-                searchQuery={searchQuery}
-                onSearchChange={handleSearchChange}
+                searchQuery={searchInput}
+                onSearchChange={(value) => {
+                  setSearchInput(value);
+                  setSearchQuery(value);
+                }}
               />
             </Box>
 
-            {isSearching ? (
-              <Box textAlign="center" py={8}>
-                <Spinner size="lg" color="orange.500" />
-              </Box>
-            ) : loading ? (
+            {loading ? (
               <Box textAlign="center" py={8}>
                 <Spinner size="lg" color="orange.500" />
               </Box>

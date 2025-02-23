@@ -11,11 +11,7 @@ import {
   HStack,
   useColorModeValue,
   Container,
-  Input,
-  InputGroup,
-  InputLeftElement,
 } from "@chakra-ui/react";
-import { SearchIcon } from "@chakra-ui/icons";
 
 export default function Header() {
   const { user, userData, setAppState } = useContext(AppContext);
@@ -68,19 +64,6 @@ export default function Header() {
             >
               Questions
             </Button>
-          </HStack>
-
-          <HStack spacing={4} flex={1} mx={8}>
-            <InputGroup maxW="600px">
-              <InputLeftElement pointerEvents="none">
-                <SearchIcon color="gray.400" />
-              </InputLeftElement>
-              <Input
-                placeholder="Search..."
-                bg={useColorModeValue("white", "gray.800")}
-                borderColor={borderColor}
-              />
-            </InputGroup>
           </HStack>
 
           <HStack spacing={4}>

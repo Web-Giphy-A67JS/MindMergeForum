@@ -1,5 +1,6 @@
-import { useState, useEffect, useContext, useMemo } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { getPostsSorted } from '../../services/posts';
+import { searchPosts } from '../../services/posts/crud.services';
 import { SORT_CRITERIA, SORT_ORDERS, DATE_RANGE } from '../../common/constants/sorting.constants';
 import { getUserById } from '../../services/user.services';
 import { AppContext } from '../store/app.context';
@@ -34,28 +35,9 @@ export const useSortedPosts = () => {
   });
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const isGuest = !auth.currentUser && !userData;
-
-    const filteredPosts = useMemo(() => {
-    if (!searchQuery) {
-      return posts.sortedPosts;
-    }
-
-    const lowerCaseQuery = searchQuery.toLowerCase();
-
-    const filtered = {};
-    for (const postId in posts.sortedPosts) {
-      const post = posts.sortedPosts[postId];
-      if (
-        post.title.toLowerCase().includes(lowerCaseQuery) ||
-        post.content.toLowerCase().includes(lowerCaseQuery)
-      ) {
-        filtered[postId] = post;
-      }
-    }
-    return filtered;
-  }, [posts.sortedPosts, searchQuery]);
 
   const fetchSortedPosts = async (section = null) => {
     try {
@@ -70,7 +52,7 @@ export const useSortedPosts = () => {
         sortCriteria,
         sortOrder,
         10,
-        section ? pagination : {  // Fix: Pass empty pagination object instead of null
+        section ? pagination : {
           lastCommentedPost: null,
           lastNewPost: null,
           lastSortedPost: null
@@ -98,22 +80,11 @@ export const useSortedPosts = () => {
         sorted: !isGuest && !!result.pagination.lastSortedPost
       });
 
-      // Fetch user handles
-      const handles = {};
-      const postsToProcess = {
+      await fetchUserHandles({
         ...result.topCommented,
         ...result.topNew,
         ...(result.sortedPosts || {})
-      };
-      
-      for (const postId in postsToProcess) {
-        const post = postsToProcess[postId];
-        if (!userHandles[post.userId]) {
-          const userData = await getUserById(post.userId);
-          handles[post.userId] = userData ? userData.handle : "Unknown User";
-        }
-      }
-      setUserHandles(prevHandles => ({ ...prevHandles, ...handles }));
+      });
     } catch (err) {
       console.error('Error fetching sorted posts:', err);
       setError(err.message);
@@ -123,6 +94,41 @@ export const useSortedPosts = () => {
       } else {
         setLoading(false);
       }
+    }
+  };
+
+  const fetchUserHandles = async (postsToProcess) => {
+    const handles = {};
+    for (const postId in postsToProcess) {
+      const post = postsToProcess[postId];
+      if (!userHandles[post.userId]) {
+        const userData = await getUserById(post.userId);
+        handles[post.userId] = userData ? userData.handle : "Unknown User";
+      }
+    }
+    setUserHandles(prevHandles => ({ ...prevHandles, ...handles }));
+  };
+
+  const performSearch = async (query) => {
+    if (!query) {
+      fetchSortedPosts();
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      setError(null);
+      const searchResults = await searchPosts(query);
+      setPosts(prev => ({
+        ...prev,
+        sortedPosts: searchResults
+      }));
+      await fetchUserHandles(searchResults);
+    } catch (err) {
+      console.error('Error searching posts:', err);
+      setError(err.message);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -137,11 +143,19 @@ export const useSortedPosts = () => {
       new: true,
       sorted: true
     });
-    fetchSortedPosts();
+    if (!searchQuery) {
+      fetchSortedPosts();
+    }
   }, [sortCriteria, sortOrder, dateRange, isGuest]);
 
+  useEffect(() => {
+    if (searchQuery) {
+      performSearch(searchQuery);
+    }
+  }, [searchQuery]);
+
   const loadMore = (section) => {
-    if (hasMore[section] && !loadingState[section]) {
+    if (hasMore[section] && !loadingState[section] && !searchQuery) {
       fetchSortedPosts(section);
     }
   };
@@ -167,13 +181,13 @@ export const useSortedPosts = () => {
     setSortOrder,
     dateRange,
     updateDateRange,
-    loading,
+    loading: loading || isSearching,
     loadingState,
     error,
     isGuest,
     hasMore,
     loadMore,
-    sortedPosts: filteredPosts,
+    sortedPosts: posts.sortedPosts,
     setSearchQuery,
     searchQuery
   };

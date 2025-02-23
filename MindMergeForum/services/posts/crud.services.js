@@ -26,6 +26,37 @@ export const getPosts = async () => {
   return snapshot.val();
 };
 
+export const searchPosts = async (searchTerm) => {
+  if (!searchTerm) {
+    return {};
+  }
+
+  try {
+    const snapshot = await get(ref(db, 'posts'));
+    if (!snapshot.exists()) {
+      return {};
+    }
+
+    const allPosts = snapshot.val();
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    const results = {};
+
+    Object.entries(allPosts).forEach(([key, post]) => {
+      if (
+        post.title.toLowerCase().includes(lowerSearchTerm) ||
+        post.content.toLowerCase().includes(lowerSearchTerm)
+      ) {
+        results[key] = post;
+      }
+    });
+
+    return results;
+  } catch (error) {
+    console.error("Error searching posts:", error);
+    throw error;
+  }
+};
+
 export const likePost = async(handle, postId) => {
   const postRef = ref(db, `posts/${postId}`);
   const snapshot = await get(postRef);

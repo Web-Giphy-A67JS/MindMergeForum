@@ -1,5 +1,16 @@
 import PropTypes from 'prop-types';
-import { Box, Select, Input, HStack, FormControl, FormLabel } from '@chakra-ui/react';
+import {
+  Box,
+  Select,
+  Input,
+  HStack,
+  FormControl,
+  FormLabel,
+  Button,
+  InputGroup,
+  InputRightElement,
+} from '@chakra-ui/react';
+import { SearchIcon } from '@chakra-ui/icons';
 import { SORT_LABELS, DATE_RANGE } from '../../common/constants/sorting.constants';
 
 export const SortingControls = ({
@@ -12,18 +23,41 @@ export const SortingControls = ({
 }) => {
   const today = new Date().toISOString().split('T')[0];
 
+  const handleSearch = () => {
+    onSearchChange(searchQuery);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
   return (
     <Box>
       <HStack spacing={4} align="flex-end">
-      <FormControl>
+        <FormControl>
           <FormLabel htmlFor="search">Search:</FormLabel>
-          <Input
-            id="search"
-            type="text"
-            placeholder="Search posts..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-          />
+          <InputGroup>
+            <Input
+              id="search"
+              type="text"
+              placeholder="Search posts..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onKeyPress={handleKeyPress}
+            />
+            <InputRightElement width="4.5rem">
+              <Button
+                h="1.75rem"
+                size="sm"
+                onClick={handleSearch}
+                colorScheme="blue"
+              >
+                <SearchIcon />
+              </Button>
+            </InputRightElement>
+          </InputGroup>
         </FormControl>
         <FormControl>
           <FormLabel htmlFor="sort-criteria">Sort by:</FormLabel>
