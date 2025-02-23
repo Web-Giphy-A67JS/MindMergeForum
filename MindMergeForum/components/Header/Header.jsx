@@ -28,9 +28,9 @@ export default function Header() {
         <Heading as="h1" size="lg">MindMerge Forum</Heading>
         <HStack as="nav" spacing={4}>
           <Link as={NavLink} to="/">Home</Link>
+          <Link as={NavLink} to="/forum">Forum</Link>
           {user && userData && userData.role === Roles.admin && (
             <>
-              <Link as={NavLink} to="/forum">Forum</Link>
               <Link as={NavLink} to="/user-profile">My Profile</Link>
               <Link as={NavLink} to="/create-post">Create Post</Link>
               <Link as={NavLink} to="/admin-tools">Admin Tools</Link>
@@ -38,7 +38,6 @@ export default function Header() {
           )}
           {user && userData && userData.role === Roles.user && (
             <>
-              <Link as={NavLink} to="/forum">Forum</Link>
               <Link as={NavLink} to="/user-profile">My Profile</Link>
               <Link as={NavLink} to="/create-post">Create Post</Link>
             </>

@@ -73,8 +73,11 @@ export default function Forum() {
     dateRange,
     updateDateRange,
     loading,
+    loadingState,
     error,
-    isGuest
+    isGuest,
+    hasMore,
+    loadMore
   } = useSortedPosts();
 
   const handleDelete = async (postId) => {
@@ -102,6 +105,37 @@ export default function Forum() {
     return <Text color="red.500">Error: {error}</Text>;
   }
 
+  const renderPostSection = (title, posts, section, canDelete = false) => (
+    <Box mb={8}>
+      <Heading as="h3" size="lg" mb={4}>{title}</Heading>
+      <VStack spacing={4} align="stretch">
+        {Object.entries(posts).map(([postId, post]) => (
+          <PostCard
+            key={postId}
+            postId={postId}
+            post={post}
+            userHandles={userHandles}
+            onDelete={handleDelete}
+            onSeeMore={handleSeeMore}
+            canDelete={canDelete && canDeletePost(post)}
+          />
+        ))}
+      </VStack>
+      {hasMore[section] && (
+        <Box textAlign="center" mt={4}>
+          <Button
+            onClick={() => loadMore(section)}
+            isLoading={loadingState[section]}
+            loadingText="Loading more..."
+            colorScheme="blue"
+          >
+            Show More {title}
+          </Button>
+        </Box>
+      )}
+    </Box>
+  );
+
   if (isGuest) {
     return (
       <Box>
@@ -110,39 +144,9 @@ export default function Forum() {
           Sign in to see all posts and participate in discussions.
         </Text>
 
-        <Box mb={8}>
-          <Heading as="h3" size="lg" mb={4}>Most Discussed Posts</Heading>
-          <VStack spacing={4} align="stretch">
-            {Object.entries(posts.topCommented).map(([postId, post]) => (
-              <PostCard
-                key={postId}
-                postId={postId}
-                post={post}
-                userHandles={userHandles}
-                onSeeMore={handleSeeMore}
-                canDelete={false}
-              />
-            ))}
-          </VStack>
-        </Box>
-
+        {renderPostSection("Most Discussed Posts", posts.topCommented, "comments")}
         <Divider my={8} />
-
-        <Box>
-          <Heading as="h3" size="lg" mb={4}>Latest Posts</Heading>
-          <VStack spacing={4} align="stretch">
-            {Object.entries(posts.topNew).map(([postId, post]) => (
-              <PostCard
-                key={postId}
-                postId={postId}
-                post={post}
-                userHandles={userHandles}
-                onSeeMore={handleSeeMore}
-                canDelete={false}
-              />
-            ))}
-          </VStack>
-        </Box>
+        {renderPostSection("Latest Posts", posts.topNew, "new")}
       </Box>
     );
   }
@@ -150,30 +154,51 @@ export default function Forum() {
   return (
     <Box>
       <Heading as="h2" mb={4}>Forum</Heading>
-      
-      <SortingControls
-        sortCriteria={sortCriteria}
-        onSortCriteriaChange={updateSortCriteria}
-        dateRange={dateRange}
-        onDateRangeChange={updateDateRange}
-      />
 
-      {Object.keys(posts).length === 0 ? (
-        <Text>No posts available</Text>
-      ) : (
-        <VStack spacing={4} align="stretch">
-          {Object.entries(posts).map(([postId, post]) => (
-            <PostCard
-              key={postId}
-              postId={postId}
-              post={post}
-              userHandles={userHandles}
-              onDelete={handleDelete}
-              onSeeMore={handleSeeMore}
-              canDelete={canDeletePost(post)}
+      {renderPostSection("Most Discussed Posts", posts.topCommented, "comments", true)}
+      <Divider my={8} />
+      {renderPostSection("Latest Posts", posts.topNew, "new", true)}
+
+      {!isGuest && (
+        <>
+          <Divider my={8} />
+          <Box>
+            <Heading as="h3" size="lg" mb={4}>All Posts</Heading>
+            <SortingControls
+              sortCriteria={sortCriteria}
+              onSortCriteriaChange={updateSortCriteria}
+              dateRange={dateRange}
+              onDateRangeChange={updateDateRange}
             />
-          ))}
-        </VStack>
+
+            <VStack spacing={4} align="stretch" mb={4}>
+              {Object.entries(posts.sortedPosts).map(([postId, post]) => (
+                <PostCard
+                  key={postId}
+                  postId={postId}
+                  post={post}
+                  userHandles={userHandles}
+                  onDelete={handleDelete}
+                  onSeeMore={handleSeeMore}
+                  canDelete={canDeletePost(post)}
+                />
+              ))}
+            </VStack>
+
+            {hasMore.sorted && (
+              <Box textAlign="center" mt={4}>
+                <Button
+                  onClick={() => loadMore('sorted')}
+                  isLoading={loadingState.sorted}
+                  loadingText="Loading more..."
+                  colorScheme="blue"
+                >
+                  Show More Posts
+                </Button>
+              </Box>
+            )}
+          </Box>
+        </>
       )}
     </Box>
   );

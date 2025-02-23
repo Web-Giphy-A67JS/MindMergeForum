@@ -16,7 +16,18 @@ const getLikeCount = (post) => {
   return post.likes || post.likeCount || 0;
 };
 
-export const getPostsSorted = async (criteria, order = SORT_ORDERS.DESC, limit = 50, dateRange = {}, isGuest = false) => {
+export const getPostsSorted = async (
+  criteria = SORT_CRITERIA.DATE,
+  order = SORT_ORDERS.DESC,
+  limit = 10,
+  pagination = {
+    lastCommentedPost: null,
+    lastNewPost: null,
+    lastSortedPost: null
+  },
+  dateRange = {},
+  isGuest = false
+) => {
   const postsRef = ref(db, 'posts');
   let sortField;
   
@@ -38,7 +49,7 @@ export const getPostsSorted = async (criteria, order = SORT_ORDERS.DESC, limit =
     const snapshot = await get(postsRef);
     const allPosts = snapshot.val() || {};
     
-    const filteredPosts = Object.entries(allPosts).filter(([, post]) => {
+    const filterByDateRange = (post) => {
       if (!post.createdOn) return false;
 
       const postDate = new Date(post.createdOn);
@@ -50,53 +61,90 @@ export const getPostsSorted = async (criteria, order = SORT_ORDERS.DESC, limit =
 
       if (fromDate && postDate < fromDate) return false;
       if (toDate && postDate > toDate) return false;
+
       return true;
-    });
+    };
 
-    if (isGuest) {
-      // For guest users, return both top commented and newest posts
-      const topCommented = [...filteredPosts]
-        .sort(([, a], [, b]) => getCommentCount(b) - getCommentCount(a))
-        .slice(0, 10)
-        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+    const allPostsArray = Object.entries(allPosts).filter(([, post]) => filterByDateRange(post));
 
-      const topNew = [...filteredPosts]
-        .sort(([, a], [, b]) => new Date(b.createdOn) - new Date(a.createdOn))
-        .slice(0, 10)
-        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
-
-      return {
-        topCommented,
-        topNew
-      };
-    }
-
-    // For logged-in users, return sorted posts based on criteria
-    const sortedPosts = filteredPosts
-      .sort(([, a], [, b]) => {
-        if (sortField === 'likedBy') {
-          const likesA = getLikeCount(a);
-          const likesB = getLikeCount(b);
-          return order === SORT_ORDERS.ASC ? likesA - likesB : likesB - likesA;
-        }
-        if (sortField === 'commentCount') {
-          const commentsA = getCommentCount(a);
-          const commentsB = getCommentCount(b);
-          return order === SORT_ORDERS.ASC ? commentsA - commentsB : commentsB - commentsA;
-        }
-        if (sortField === 'createdOn') {
-          return order === SORT_ORDERS.ASC
-            ? new Date(a[sortField]) - new Date(b[sortField])
-            : new Date(b[sortField]) - new Date(a[sortField]);
-        }
-        return order === SORT_ORDERS.ASC
-          ? a[sortField] - b[sortField]
-          : b[sortField] - a[sortField];
+    // Get most commented posts with pagination
+    const commentedPosts = [...allPostsArray]
+      .sort(([, a], [, b]) => getCommentCount(b) - getCommentCount(a))
+      .filter(([, post]) => {
+        if (!pagination.lastCommentedPost) return true;
+        return getCommentCount(post) < getCommentCount(pagination.lastCommentedPost);
       })
       .slice(0, limit)
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
-    
-    return sortedPosts;
+
+    // Get newest posts with pagination
+    const newPosts = [...allPostsArray]
+      .sort(([, a], [, b]) => new Date(b.createdOn) - new Date(a.createdOn))
+      .filter(([, post]) => {
+        if (!pagination.lastNewPost) return true;
+        return new Date(post.createdOn) < new Date(pagination.lastNewPost.createdOn);
+      })
+      .slice(0, limit)
+      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+
+    const result = {
+      topCommented: commentedPosts,
+      topNew: newPosts,
+      pagination: {
+        lastCommentedPost: Object.values(commentedPosts).sort((a, b) =>
+          getCommentCount(b) - getCommentCount(a)
+        )[Object.keys(commentedPosts).length - 1] || null,
+        lastNewPost: Object.values(newPosts).sort((a, b) =>
+          new Date(b.createdOn) - new Date(a.createdOn)
+        )[Object.keys(newPosts).length - 1] || null
+      }
+    };
+
+    // For logged-in users, include sorted posts based on criteria
+    if (!isGuest) {
+      const sortedPosts = [...allPostsArray]
+        .filter(([, post]) => {
+          if (!pagination.lastSortedPost) return true;
+          
+          if (sortField === 'likedBy') {
+            return getLikeCount(post) < getLikeCount(pagination.lastSortedPost);
+          }
+          if (sortField === 'commentCount') {
+            return getCommentCount(post) < getCommentCount(pagination.lastSortedPost);
+          }
+          if (sortField === 'createdOn') {
+            return new Date(post.createdOn) < new Date(pagination.lastSortedPost.createdOn);
+          }
+          return true;
+        })
+        .sort(([, a], [, b]) => {
+          if (sortField === 'likedBy') {
+            const likesA = getLikeCount(a);
+            const likesB = getLikeCount(b);
+            return order === SORT_ORDERS.ASC ? likesA - likesB : likesB - likesA;
+          }
+          if (sortField === 'commentCount') {
+            const commentsA = getCommentCount(a);
+            const commentsB = getCommentCount(b);
+            return order === SORT_ORDERS.ASC ? commentsA - commentsB : commentsB - commentsA;
+          }
+          if (sortField === 'createdOn') {
+            return order === SORT_ORDERS.ASC
+              ? new Date(a[sortField]) - new Date(b[sortField])
+              : new Date(b[sortField]) - new Date(a[sortField]);
+          }
+          return order === SORT_ORDERS.ASC
+            ? a[sortField] - b[sortField]
+            : b[sortField] - a[sortField];
+        })
+        .slice(0, limit)
+        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+
+      result.sortedPosts = sortedPosts;
+      result.pagination.lastSortedPost = Object.values(sortedPosts)[Object.keys(sortedPosts).length - 1] || null;
+    }
+
+    return result;
   } catch (error) {
     console.error('Error fetching sorted posts:', error);
     throw error;

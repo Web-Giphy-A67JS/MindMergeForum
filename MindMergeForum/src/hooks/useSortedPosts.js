@@ -7,7 +7,7 @@ import { auth } from '../config/firebase.config';
 
 export const useSortedPosts = () => {
   const { userData } = useContext(AppContext);
-  const [posts, setPosts] = useState({});
+  const [posts, setPosts] = useState({ topCommented: {}, topNew: {}, sortedPosts: {} });
   const [userHandles, setUserHandles] = useState({});
   const [sortCriteria, setSortCriteria] = useState(SORT_CRITERIA.DATE);
   const [sortOrder, setSortOrder] = useState(SORT_ORDERS.DESC);
@@ -16,47 +16,117 @@ export const useSortedPosts = () => {
     [DATE_RANGE.TO]: new Date().toISOString().split('T')[0]
   });
   const [loading, setLoading] = useState(true);
+  const [loadingState, setLoadingState] = useState({
+    comments: false,
+    new: false,
+    sorted: false
+  });
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    lastCommentedPost: null,
+    lastNewPost: null,
+    lastSortedPost: null
+  });
+  const [hasMore, setHasMore] = useState({
+    comments: true,
+    new: true,
+    sorted: true
+  });
 
   const isGuest = !auth.currentUser && !userData;
 
-  useEffect(() => {
-    const fetchSortedPosts = async () => {
-      try {
+  const fetchSortedPosts = async (section = null) => {
+    try {
+      if (section) {
+        setLoadingState(prev => ({ ...prev, [section]: true }));
+      } else {
         setLoading(true);
-        setError(null);
-        
-        // Fetch sorted posts
-        const sortedPosts = await getPostsSorted(sortCriteria, sortOrder, 50, dateRange, isGuest);
-        setPosts(sortedPosts);
+      }
+      setError(null);
+      
+      const result = await getPostsSorted(
+        sortCriteria,
+        sortOrder,
+        10,
+        section ? pagination : {  // Fix: Pass empty pagination object instead of null
+          lastCommentedPost: null,
+          lastNewPost: null,
+          lastSortedPost: null
+        },
+        dateRange,
+        isGuest
+      );
 
-        // Fetch user handles for the posts
-        const handles = {};
-        const postsToProcess = isGuest ? { ...sortedPosts.topCommented, ...sortedPosts.topNew } : sortedPosts;
-        
-        for (const postId in postsToProcess) {
-          const post = postsToProcess[postId];
-          if (!userHandles[post.userId]) {
-            const userData = await getUserById(post.userId);
-            handles[post.userId] = userData ? userData.handle : "Unknown User";
-          }
+      setPosts(prevPosts => ({
+        topCommented: section === 'comments'
+          ? { ...prevPosts.topCommented, ...result.topCommented }
+          : result.topCommented,
+        topNew: section === 'new'
+          ? { ...prevPosts.topNew, ...result.topNew }
+          : result.topNew,
+        sortedPosts: section === 'sorted'
+          ? { ...prevPosts.sortedPosts, ...result.sortedPosts }
+          : (result.sortedPosts || {})
+      }));
+
+      setPagination(result.pagination);
+      setHasMore({
+        comments: !!result.pagination.lastCommentedPost,
+        new: !!result.pagination.lastNewPost,
+        sorted: !isGuest && !!result.pagination.lastSortedPost
+      });
+
+      // Fetch user handles
+      const handles = {};
+      const postsToProcess = {
+        ...result.topCommented,
+        ...result.topNew,
+        ...(result.sortedPosts || {})
+      };
+      
+      for (const postId in postsToProcess) {
+        const post = postsToProcess[postId];
+        if (!userHandles[post.userId]) {
+          const userData = await getUserById(post.userId);
+          handles[post.userId] = userData ? userData.handle : "Unknown User";
         }
-        setUserHandles(prevHandles => ({ ...prevHandles, ...handles }));
-      } catch (err) {
-        console.error('Error fetching sorted posts:', err);
-        setError(err.message);
-      } finally {
+      }
+      setUserHandles(prevHandles => ({ ...prevHandles, ...handles }));
+    } catch (err) {
+      console.error('Error fetching sorted posts:', err);
+      setError(err.message);
+    } finally {
+      if (section) {
+        setLoadingState(prev => ({ ...prev, [section]: false }));
+      } else {
         setLoading(false);
       }
-    };
+    }
+  };
 
+  useEffect(() => {
+    setPagination({
+      lastCommentedPost: null,
+      lastNewPost: null,
+      lastSortedPost: null
+    });
+    setHasMore({
+      comments: true,
+      new: true,
+      sorted: true
+    });
     fetchSortedPosts();
   }, [sortCriteria, sortOrder, dateRange, isGuest]);
+
+  const loadMore = (section) => {
+    if (hasMore[section] && !loadingState[section]) {
+      fetchSortedPosts(section);
+    }
+  };
 
   const updateSortCriteria = (newCriteria) => {
     if (newCriteria !== sortCriteria) {
       setSortCriteria(newCriteria);
-      // Set the appropriate order based on the new criteria
       const [, order] = newCriteria.split('_');
       setSortOrder(order || SORT_ORDERS.DESC);
     }
@@ -76,7 +146,10 @@ export const useSortedPosts = () => {
     dateRange,
     updateDateRange,
     loading,
+    loadingState,
     error,
-    isGuest
+    isGuest,
+    hasMore,
+    loadMore
   };
 };
