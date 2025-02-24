@@ -1,73 +1,68 @@
-// FEATURE: Add sorting functionality imports
-import { useState, useEffect, useContext, useMemo } from "react";
-import { getPosts, deletePost, updatePost } from "../../../services/posts.services";
-import { getUserById } from "../../../services/user.services";
+import { useState, useContext, useMemo } from "react";
+import {
+  Box,
+  Container,
+  Heading,
+  RadioGroup,
+  Radio,
+  Stack,
+  HStack,
+  Text,
+  Flex,
+  useColorModeValue,
+  Divider,
+  Spinner,
+  Alert,
+  AlertIcon,
+} from "@chakra-ui/react";
 import { AppContext } from "../../store/app.context";
 import ForumRender from "../../../components/ForumRender/ForumRender";
+import usePosts from "../../hooks/usePosts";
+import { usePostMutations } from "../../hooks/usePostMutations";
 
 export default function Forum() {
   const { userData } = useContext(AppContext);
-  const [posts, setPosts] = useState({});
-  const [userHandles, setUserHandles] = useState({});
+  const { data, isLoading, error } = usePosts();
+  const { deletePost, updatePost } = usePostMutations();
   const [editingPost, setEditingPost] = useState(null);
   const [editedTitle, setEditedTitle] = useState("");
   const [editedContent, setEditedContent] = useState("");
-  // FEATURE: Enhanced sorting state (criteria + direction)
-  const [sortCriteria, setSortCriteria] = useState("uploadDate");
+  const [sortCriteria, setSortCriteria] = useState("createdDate");
   const [sortDirection, setSortDirection] = useState("desc");
 
-  useEffect(() => {
-    const fetchPostsAndHandles = async () => {
-      try {
-        const data = await getPosts();
-        setPosts(data || {});
+  // Background colors
+  const bgColor = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.200", "gray.700");
 
-        const handles = {};
-        for (const postId in data) {
-          const post = data[postId];
-          const userData = await getUserById(post.userId);
-          handles[post.userId] = userData ? userData.handle : "Unknown User";
-        }
-        setUserHandles(handles);
-      } catch (error) {
-        console.error(error.message);
-      }
-    };
+  const posts = data?.posts || {};
+  const userHandles = data?.userHandles || {};
 
-    fetchPostsAndHandles();
-  }, []);
-
-  // FEATURE: Enhanced sorting logic with direction control
   const sortedPosts = useMemo(() => {
     const postsArray = Object.entries(posts);
     const sortModifier = sortDirection === 'asc' ? 1 : -1;
   
-    if (sortCriteria === 'comments') {
-      return [...postsArray].sort((a, b) => { // postArray to shadow copy before sorting
-        const aCount = a[1].comments ? Object.keys(a[1].comments).length : 0;
-        const bCount = b[1].comments ? Object.keys(b[1].comments).length : 0;
-        return (bCount - aCount) * sortModifier;
-      });
+    switch (sortCriteria) {
+      case 'comments':
+        return [...postsArray].sort((a, b) => {
+          const aCount = a[1].comments ? Object.keys(a[1].comments).length : 0;
+          const bCount = b[1].comments ? Object.keys(b[1].comments).length : 0;
+          return (bCount - aCount) * sortModifier;
+        });
+      
+      case 'createdDate':
+        return [...postsArray].sort((a, b) => {
+          const aDate = new Date(a[1].createdOn).getTime();
+          const bDate = new Date(b[1].createdOn).getTime();
+          return (bDate - aDate) * sortModifier;
+        });
+      
+      default:
+        return postsArray;
     }
-  
-    return [...postsArray].sort((a, b) => {
-      const aDate = new Date(a[1].createdOn);
-      const bDate = new Date(b[1].createdOn);
-      return (bDate - aDate) * sortModifier;
-    });
   }, [posts, sortCriteria, sortDirection]);
 
-  const handleDelete = async (postId) => {
-    try {
-      await deletePost(postId);
-      setPosts((prevPosts) => {
-        const updatedPosts = { ...prevPosts };
-        delete updatedPosts[postId];
-        return updatedPosts;
-      });
-    } catch (error) {
-      console.error("Error deleting post:", error.message);
-    }
+  const handleDelete = (postId) => {
+    deletePost(postId);
   };
 
   const handleEdit = (postId, title, content) => {
@@ -76,99 +71,115 @@ export default function Forum() {
     setEditedContent(content);
   };
 
-  const handleSaveEdit = async (postId) => {
-    try {
-      await updatePost(postId, { title: editedTitle, content: editedContent });
-      setPosts((prevPosts) => ({
-        ...prevPosts,
-        [postId]: { ...prevPosts[postId], title: editedTitle, content: editedContent },
-      }));
-      setEditingPost(null);
-    } catch (error) {
-      console.error("Error updating post:", error.message);
-    }
+  const handleSaveEdit = (postId) => {
+    updatePost({
+      postId,
+      updates: {
+        title: editedTitle,
+        content: editedContent,
+        lastActivityDate: Date.now()
+      }
+    });
+    setEditingPost(null);
   };
 
   const handleCancelEdit = () => {
     setEditingPost(null);
   };
 
+  if (isLoading) {
+    return (
+      <Box textAlign="center" py={20}>
+        <Spinner size="xl" color="orange.500" />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box pt={8}>
+        <Container maxW="container.xl">
+          <Alert status="error" borderRadius="md">
+            <AlertIcon />
+            Error loading posts: {error.message}
+          </Alert>
+        </Container>
+      </Box>
+    );
+  }
+
   return (
-    <div>
-      <h2>Forum</h2>
-      {/* FEATURE: Enhanced sorting UI with criteria/direction controls */}
-      <div className="sort-controls">
-        <div className="criteria-controls">
-          <span>Sort by:</span>
-          <label>
-            <input
-              type="radio"
-              name="criteria"
-              value="comments"
-              checked={sortCriteria === "comments"}
-              onChange={(e) => setSortCriteria(e.target.value)}
-            />
-            Comments
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="criteria"
-              value="uploadDate"
-              checked={sortCriteria === "uploadDate"}
-              onChange={(e) => setSortCriteria(e.target.value)}
-            />
-            Date
-          </label>
-        </div>
+    <Container maxW="container.xl" py={8}>
+      <Box mb={8}>
+        <Heading as="h1" size="xl" mb={6} color="orange.500">
+          Forum
+        </Heading>
+        
+        <Box 
+          bg={bgColor} 
+          p={4} 
+          borderRadius="md" 
+          boxShadow="sm"
+          border="1px"
+          borderColor={borderColor}
+          mb={6}
+        >
+          <Flex 
+            direction={{ base: "column", md: "row" }} 
+            gap={6}
+            align={{ base: "stretch", md: "center" }}
+          >
+            <Box flex="1">
+              <Text fontWeight="medium" mb={2}>Sort by</Text>
+              <RadioGroup value={sortCriteria} onChange={setSortCriteria}>
+                <Stack direction={{ base: "column", sm: "row" }} spacing={4}>
+                  <Radio value="createdDate" colorScheme="orange">Created Date</Radio>
+                  <Radio value="comments" colorScheme="orange">Comments</Radio>
+                </Stack>
+              </RadioGroup>
+            </Box>
+            
+            <Divider display={{ base: "block", md: "none" }} />
+            
+            <Box flex="1">
+              <Text fontWeight="medium" mb={2}>Order</Text>
+              <RadioGroup value={sortDirection} onChange={setSortDirection}>
+                <HStack spacing={4}>
+                  <Radio value="desc" colorScheme="orange">Older First</Radio>
+                  <Radio value="asc" colorScheme="orange">Newest First</Radio>
+                </HStack>
+              </RadioGroup>
+            </Box>
+          </Flex>
+        </Box>
+      </Box>
 
-        <div className="direction-controls">
-          <span>Order:</span>
-          <label>
-            <input
-              type="radio"
-              name="direction"
-              value="asc"
-              checked={sortDirection === "asc"}
-              onChange={(e) => setSortDirection(e.target.value)}
+      <Stack spacing={4}>
+        {sortedPosts.length === 0 ? (
+          <Text fontSize="lg" textAlign="center" color="gray.600">
+            No posts available
+          </Text>
+        ) : (
+          sortedPosts.map(([postId, post]) => (
+            <ForumRender
+              key={postId}
+              postId={postId}
+              post={post}
+              userHandles={userHandles}
+              editingPost={editingPost}
+              editedTitle={editedTitle}
+              editedContent={editedContent}
+              setEditedTitle={setEditedTitle}
+              setEditedContent={setEditedContent}
+              handleSaveEdit={handleSaveEdit}
+              handleCancelEdit={handleCancelEdit}
+              handleEdit={handleEdit}
+              handleDelete={handleDelete}
+              userData={userData}
             />
-            Ascending
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="direction"
-              value="desc"
-              checked={sortDirection === "desc"}
-              onChange={(e) => setSortDirection(e.target.value)}
-            />
-            Descending
-          </label>
-        </div>
-      </div>
-
-      {sortedPosts.length === 0 ? (
-        <p>No posts available</p>
-      ) : (
-        sortedPosts.map(([postId, post]) => (
-          <ForumRender
-            key={postId}
-            postId={postId}
-            post={post}
-            userHandles={userHandles}
-            editingPost={editingPost}
-            editedTitle={editedTitle}
-            editedContent={editedContent}
-            setEditedTitle={setEditedTitle}
-            setEditedContent={setEditedContent}
-            handleSaveEdit={handleSaveEdit}
-            handleCancelEdit={handleCancelEdit}
-            handleEdit={handleEdit}
-            handleDelete={handleDelete}
-            userData={userData}
-          />
-        ))
-      )}
-    </div>
+          ))
+        )}
+      </Stack>
+    </Container>
   );
 }
